@@ -1,15 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import Cookies from "js-cookie";
+import { useState, useEffect} from "react";
 import Link from "next/link";
 import { Heart, ShoppingCart, Menu, X } from "lucide-react";
 
+
+
 export default function XtraLabHeader() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);  
+  const [ cartCount, setCartCount ] = useState();
+  
+
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
+  const checkShoppingCart = () => {
+    // 檢查是否已經有 Session ID
+    let sessionId = Cookies.get('session_id');
+    if (sessionId) {
+      // 如果有，則獲取購物車內容
+      fetch(`http://localhost:3030/shoppingCart/getcart/${sessionId}`)
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            throw new Error('獲取購物車失敗');
+          }
+        })
+        .then((data) => {
+          console.log('購物車內容：', data.length);                    
+          setCartCount(data.length);
+        })
+        .catch((error) => {
+          console.error('錯誤：', error);
+          // 處理錯誤（如顯示錯誤訊息）
+        });
+    }
+  }
+
+  useEffect(() => {    
+    checkShoppingCart();
+    const handleHeaderShoppingCartRefresh = (event) => {
+      checkShoppingCart();
+    };
+    window.addEventListener("userAddedCart", handleHeaderShoppingCartRefresh); 
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-[#FF9933] text-white py-4 px-4 shadow-[0px_10px_10px_rgba(128,128,128,0.5)]  font-[Geneva, Verdana, Tahoma, system-ui, sans-serif] ">
@@ -54,9 +92,19 @@ export default function XtraLabHeader() {
           <Link href="/favorites" aria-label="Favorites">
             <Heart className="h-6 w-6" />
           </Link>
-          <Link href="/cart" aria-label="Shopping Cart">
-            <ShoppingCart className="h-6 w-6" />
-          </Link>
+
+          <div className="relative inline-block">
+            <Link href="/shoppingcart" aria-label="Shopping Cart">
+              <ShoppingCart className="h-6 w-6" />
+            </Link>
+            {cartCount > 0 && (
+              <div className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                {cartCount}
+              </div>
+            )}
+          </div>
+
+
           <button
             variant="outline"
             className="btn btn-lg bg-white text-[#FF9933] hover:bg-black hover:text-white hover:cursor-pointer border-none transition-all duration-200 ease-in-out hover:shadow-[0_0_0_1px_white]"
