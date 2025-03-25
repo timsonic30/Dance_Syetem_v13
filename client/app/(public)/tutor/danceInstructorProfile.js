@@ -1,11 +1,19 @@
+"use client";
 import Cookies from "js-cookie";
 import { redirect } from "next/navigation";
+import { useState, useEffect } from "react";
+
+
 
 export default function DanceInstructorProfile({
   showcaseData,
   showTeacherClassData,
-  oneTeacherdata,
+  oneTeacherdata,  
 }) {
+ 
+  const [ cartCount, setCartCount ] = useState();
+  
+
   const renderContent = () => {
     if (showcaseData) {
       return (
@@ -69,31 +77,109 @@ export default function DanceInstructorProfile({
       );
     }
   };
-  
+
+
+  const generateSessionId = () => {
+    // 使用隨機數生成唯一的 Session ID
+    return 'session-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+  }
+
+  const checkShoppingCart = () => {
+    // 檢查是否已經有 Session ID
+    let sessionId = Cookies.get('session_id');
+    if (sessionId) {
+      // 如果有，則獲取購物車內容
+      fetch(`http://localhost:3030/shoppingCart/getcart/${sessionId}`)
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            throw new Error('獲取購物車失敗');
+          }
+        })
+        .then((data) => {          
+          Cookies.set("shoppinglength", length);
+          setCartCount(data.length);               
+        })
+        .catch((error) => {
+          console.error('錯誤：', error);
+          // 處理錯誤（如顯示錯誤訊息）
+        });
+    }}
+
+  const handleAddToCart = (id, classprice) => {
+    // 檢查是否已經有 Session ID
+    let sessionId = Cookies.get('session_id');
+    if (!sessionId) {
+      // 如果沒有，則生成新的 Session ID 並存儲
+      sessionId = generateSessionId();
+      Cookies.set('session_id', sessionId);
+    }
+    //將資料存入購物車DB
+    fetch("http://localhost:3030/shoppingCart/addtocart", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", // 設置內容類型為 JSON        
+      },
+      body: JSON.stringify({
+        productID: id,
+        collectionName: 'danceclasses',
+        price: classprice,
+        shoppingType: 'class',
+        sessionID: sessionId, // 傳送 Session ID
+      }),
+    })
+      .then((response) => {
+        if (response.ok) {
+          return response.json();
+        } else {
+          throw new Error("預訂課程失敗");
+        }
+      })
+      .then((data) => {
+        console.log("預訂成功：", data);
+        // 成功後處理邏輯（如顯示成功訊息或更新畫面）
+        alert("已加購物車！");
+        checkShoppingCart(); // 確保更新購物車內容
+        //=======================
+         // 使用 window.dispatchEvent 觸發一個自定義事件
+    const event = new CustomEvent("userAddedCart", {
+      detail: { message: "refresh shopping Cart length" },
+    });
+    window.dispatchEvent(event);
+        //=========================
+      })
+      .catch((error) => {
+        console.error("錯誤：", error);
+        // 處理錯誤（如顯示錯誤訊息）
+      });
+  }
+
+
 
   const renderClassContect = () => {
     // 現在要將抓回來的課程內容變成一個個表
     if (showTeacherClassData) {
       return showTeacherClassData.tutorClass.map((element) => {
         const date = new Date(element.date); // 將日期字串轉換為 Date 物件
-        const month = date.getMonth() + 1; // getMonth() 返回 0-11 的月份索引，因此需要加 1
+        const month = date.getMonth() + 1; // getMonth() 返回 0-11 的月份索引，因此需要加 1        
 
 
 
         const handleButtonClick = (id, classprice) => {
 
-        //get token
-        const token = localStorage.getItem("token");
-            if (!token) {
-              alert("未login，請先登入！");
-        
-              // 獲取當前路徑
-              const currentPath = window.location.pathname;
-              console.log(currentPath)
-              // 設置 Cookie 保存路徑
-              Cookies.set('redirectPath', currentPath)
-              redirect("http://localhost:3000/login")
-            }
+          //get token
+          const token = localStorage.getItem("token");
+          if (!token) {
+            alert("未login，請先登入！");
+
+            // 獲取當前路徑
+            const currentPath = window.location.pathname;
+            console.log(currentPath)
+            // 設置 Cookie 保存路徑
+            Cookies.set('redirectPath', currentPath)
+            redirect("http://localhost:3000/login")
+          }
 
           //get userId
           fetch('http://localhost:3030/danceclass/bookingClass', {
@@ -102,9 +188,9 @@ export default function DanceInstructorProfile({
               'Content-Type': 'application/json', // 設置內容類型為 JSON
               authorization: `Bearer ${token}` // 使用 Token 作為 Authorization
             },
-            body: JSON.stringify({              
-              price:classprice,   // 傳送 price（價格）
-              type:'Class',    // 傳送類型              
+            body: JSON.stringify({
+              price: classprice,   // 傳送 price（價格）
+              type: 'Class',    // 傳送類型              
               id,      // 傳送課程 ID
             }),
           })
@@ -118,7 +204,7 @@ export default function DanceInstructorProfile({
             .then((data) => {
               console.log('預訂成功：', data);
               // 成功後處理邏輯（如顯示成功訊息或更新畫面）
-              alert('預訂成功！');              
+              alert('預訂成功！');
             })
             .catch((error) => {
               console.error('錯誤：', error);
@@ -158,9 +244,11 @@ export default function DanceInstructorProfile({
               </div>
               <button
                 className="border border-white text-white px-4 py-2 hover:bg-white hover:text-black transition duration-200 cursor-pointer"
-                onClick={() => handleButtonClick(element._id, element.price)}
+                //onClick={() => handleButtonClick(element._id, element.price)}
+                onClick={() => handleAddToCart(element._id, element.price)}
+
               >
-                Book This Class
+                Add to Cart
               </button>
             </div>
           </div>
@@ -172,9 +260,10 @@ export default function DanceInstructorProfile({
 
   return (
     <div className="bg-white text-zinc-700">
-      <div className="container mx-auto px-4 py-8 md:py-12">
+      <div className="container mx-auto px-4 py-8 md:py-12">        
         {renderContent()}
-      </div>
+      </div>      
     </div>
+
   );
 }
