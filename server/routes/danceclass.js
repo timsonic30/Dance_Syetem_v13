@@ -248,7 +248,7 @@ router.post('/bookingClass', Authorization, async (req, res, next) => {
       type: type,     
       userId: objectId,
       price: price,
-      status: 'Shopping Cart',
+      status: 'Pending Payment',
       detail : id
     });
 
